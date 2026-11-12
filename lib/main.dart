@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
 
 import 'package:login_bear_animation/screens/login_screen.dart';
+import 'package:login_bear_animation/screens/home_screen.dart';
 
 void main() async {
-  // Asegura que los bindings de Flutter estén listos
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicializa Firebase con las credenciales de tu proyecto
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  debugPrint('🔥 Firebase inicializado con éxito');
-
   runApp(const MyApp());
 }
 
@@ -29,7 +25,24 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      // Escucha en tiempo real si el usuario tiene la sesión iniciada o no
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // Mientras verifica si hay sesión activa
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          // Si ya inició sesión, lo manda directo a HomeScreen
+          if (snapshot.hasData) {
+            return const HomeScreen();
+          }
+          // Si no hay sesión, muestra la pantalla del osito
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }
