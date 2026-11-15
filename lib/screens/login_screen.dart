@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'dart:async';
 
+import 'signup_screen.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -15,9 +17,9 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   bool _obscure = true;
   bool _isLoading = false;
-
   bool _rememberMe = false;
   bool _rememberAnimating = false;
+
   late AnimationController _rememberController;
   late Animation<double> _rememberScale;
 
@@ -27,10 +29,12 @@ class _LoginScreenState extends State<LoginScreen>
   SMITrigger? _trigSuccess;
   SMITrigger? _trigFail;
   SMINumber? _numLook;
+
   Timer? _typingDebounce;
 
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
+
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
 
@@ -48,11 +52,82 @@ class _LoginScreenState extends State<LoginScreen>
 
   void _toggleRememberMe() {
     if (_rememberAnimating) return;
+
     setState(() {
       _rememberAnimating = true;
       _rememberMe = !_rememberMe;
     });
+
     _rememberController.forward();
+  }
+
+  // Recuperar contraseña utilizando Firebase Authentication
+  Future<void> _onForgotPassword() async {
+    final email = _emailCtrl.text.trim();
+
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Primero ingresa tu correo electrónico.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      setState(() {
+        emailError = 'Invalid email';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingresa un correo electrónico válido.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña.',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String mensaje;
+
+      if (e.code == 'invalid-email') {
+        mensaje = 'El correo electrónico no es válido.';
+      } else if (e.code == 'network-request-failed') {
+        mensaje = 'Revisa tu conexión a internet.';
+      } else {
+        mensaje = 'No se pudo enviar el correo. Intenta nuevamente.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensaje), backgroundColor: Colors.redAccent),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ocurrió un error. Intenta nuevamente.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   Future<void> _onLogin() async {
@@ -62,6 +137,7 @@ class _LoginScreenState extends State<LoginScreen>
     final pass = _passCtrl.text;
 
     final eError = isValidEmail(email) ? null : "Invalid email";
+
     final pError = isValidPassword(pass)
         ? null
         : "Password must be at least 6 characters";
@@ -72,7 +148,9 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     FocusScope.of(context).unfocus();
+
     _typingDebounce?.cancel();
+
     _isChecking?.change(false);
     _isHandsUp?.change(false);
     _numLook?.value = 50.0;
@@ -91,11 +169,13 @@ class _LoginScreenState extends State<LoginScreen>
       );
 
       _trigSuccess?.fire();
+
       await Future.delayed(const Duration(milliseconds: 1200));
     } on FirebaseAuthException catch (e) {
       _trigFail?.fire();
 
       String mensaje = 'Authentication failed';
+
       if (e.code == 'user-not-found' ||
           e.code == 'wrong-password' ||
           e.code == 'invalid-credential') {
@@ -135,8 +215,10 @@ class _LoginScreenState extends State<LoginScreen>
       if (status == AnimationStatus.completed) {
         _rememberController.reverse();
       }
+
       if (status == AnimationStatus.dismissed) {
         if (!mounted) return;
+
         setState(() {
           _rememberAnimating = false;
         });
@@ -170,6 +252,7 @@ class _LoginScreenState extends State<LoginScreen>
     _passCtrl.dispose();
     _typingDebounce?.cancel();
     _rememberController.dispose();
+
     super.dispose();
   }
 
@@ -195,7 +278,9 @@ class _LoginScreenState extends State<LoginScreen>
                         artboard,
                         'Login Machine',
                       );
+
                       if (_controller == null) return;
+
                       artboard.addController(_controller!);
 
                       _isChecking = _controller!.findSMI('isChecking');
@@ -216,18 +301,22 @@ class _LoginScreenState extends State<LoginScreen>
                   onChanged: (value) {
                     if (_isChecking != null) {
                       _isChecking!.change(true);
+
                       final look = (value.length / 80.0 * 100.0).clamp(
                         0.0,
                         100.0,
                       );
+
                       _numLook?.value = look;
 
                       _typingDebounce?.cancel();
+
                       _typingDebounce = Timer(const Duration(seconds: 3), () {
                         if (!mounted) return;
                         _isChecking?.change(false);
                       });
                     }
+
                     if (_isHandsUp != null) {
                       _isHandsUp!.change(false);
                     }
@@ -252,6 +341,7 @@ class _LoginScreenState extends State<LoginScreen>
                     if (_isHandsUp != null) {
                       _isHandsUp!.change(_obscure);
                     }
+
                     if (_isChecking != null) {
                       _isChecking!.change(false);
                     }
@@ -267,6 +357,7 @@ class _LoginScreenState extends State<LoginScreen>
                       onPressed: () {
                         setState(() {
                           _obscure = !_obscure;
+
                           if (_isHandsUp != null) {
                             _isHandsUp!.change(_obscure);
                           }
@@ -333,12 +424,16 @@ class _LoginScreenState extends State<LoginScreen>
                           ],
                         ),
                       ),
-                      const Text(
-                        'Forgot Password?',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                          fontSize: 13,
-                          decoration: TextDecoration.underline,
+
+                      TextButton(
+                        onPressed: _onForgotPassword,
+                        child: const Text(
+                          'Forgot Password?',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.black,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
                     ],
@@ -382,7 +477,14 @@ class _LoginScreenState extends State<LoginScreen>
                     children: [
                       const Text("Don't have an account? "),
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SignUpScreen(),
+                            ),
+                          );
+                        },
                         child: const Text(
                           'Sign up',
                           style: TextStyle(
