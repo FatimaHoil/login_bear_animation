@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'signup_screen.dart';
 
+import 'package:login_bear_animation/services/api_service.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -47,7 +49,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   bool isValidPassword(String pass) {
-    return pass.length >= 6;
+    final re = RegExp(
+      r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$',
+    );
+    return re.hasMatch(pass);
   }
 
   void _toggleRememberMe() {
@@ -61,29 +66,14 @@ class _LoginScreenState extends State<LoginScreen>
     _rememberController.forward();
   }
 
-  // Recuperar contraseña utilizando Firebase Authentication
   Future<void> _onForgotPassword() async {
     final email = _emailCtrl.text.trim();
 
-    if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Primero ingresa tu correo electrónico.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (!isValidEmail(email)) {
-      setState(() {
-        emailError = 'Invalid email';
-      });
-
+    if (email.isEmpty || !isValidEmail(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Ingresa un correo electrónico válido.'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -105,42 +95,28 @@ class _LoginScreenState extends State<LoginScreen>
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
-      String mensaje;
-
-      if (e.code == 'invalid-email') {
-        mensaje = 'El correo electrónico no es válido.';
-      } else if (e.code == 'network-request-failed') {
-        mensaje = 'Revisa tu conexión a internet.';
-      } else {
-        mensaje = 'No se pudo enviar el correo. Intenta nuevamente.';
-      }
+      String mensaje = e.code == 'network-request-failed'
+          ? 'Revisa tu conexión a internet.'
+          : 'No se pudo enviar el correo. Intenta nuevamente.';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(mensaje), backgroundColor: Colors.redAccent),
       );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ocurrió un error. Intenta nuevamente.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
     }
   }
 
+  // Inicio de sesión con Spring Boot y Firebase
   Future<void> _onLogin() async {
     if (_isLoading) return;
 
     final email = _emailCtrl.text.trim();
     final pass = _passCtrl.text;
 
-    final eError = isValidEmail(email) ? null : "Invalid email";
+    final eError = isValidEmail(email) ? null : 'Invalid email';
 
     final pError = isValidPassword(pass)
         ? null
-        : "Password must be at least 6 characters";
+        : 'Password must contain 8 characters, uppercase, lowercase, number and special character';
 
     setState(() {
       emailError = eError;
@@ -148,7 +124,6 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     FocusScope.of(context).unfocus();
-
     _typingDebounce?.cancel();
 
     _isChecking?.change(false);
@@ -160,18 +135,51 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
+      debugPrint('========== INICIO DE LOGIN ==========');
+
+      // 1. Iniciar sesión en Spring Boot
+      debugPrint('PRUEBA 1: solicitando JWT a Spring Boot');
+
+      await ApiService.login(email, pass);
+
+      debugPrint('PRUEBA 2: terminó login de Spring Boot');
+      debugPrint('PRUEBA 3: ¿Hay token? ${ApiService.hasToken}');
+
+      if (!ApiService.hasToken) {
+        throw Exception('Spring Boot no guardó el token.');
+      }
+
+      // 2. Iniciar sesión en Firebase
+      debugPrint('PRUEBA 4: iniciando sesión en Firebase');
+
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: pass,
       );
 
+      debugPrint('PRUEBA 5: login de Firebase terminado');
+      debugPrint(
+        'PRUEBA 6: ¿Sigue existiendo el token? ${ApiService.hasToken}',
+      );
+
+      if (!ApiService.hasToken) {
+        throw Exception('El token se perdió después del login de Firebase.');
+      }
+
+      debugPrint('LOGIN COMPLETADO CORRECTAMENTE');
+
       _trigSuccess?.fire();
 
       await Future.delayed(const Duration(milliseconds: 1200));
     } on FirebaseAuthException catch (e) {
+      debugPrint('ERROR FIREBASE: ${e.code}');
+
+      ApiService.logout();
       _trigFail?.fire();
 
       String mensaje = 'Authentication failed';
@@ -191,9 +199,27 @@ class _LoginScreenState extends State<LoginScreen>
           SnackBar(content: Text(mensaje), backgroundColor: Colors.redAccent),
         );
       }
-    } finally {
+    } catch (e) {
+      debugPrint('ERROR GENERAL: $e');
+
+      ApiService.logout();
+      _trigFail?.fire();
+
       if (mounted) {
-        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudo iniciar sesión: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      debugPrint('========== FIN DE LOGIN ==========');
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -291,9 +317,7 @@ class _LoginScreenState extends State<LoginScreen>
                     },
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 TextField(
                   controller: _emailCtrl,
                   focusNode: _emailFocus,
@@ -308,7 +332,6 @@ class _LoginScreenState extends State<LoginScreen>
                       );
 
                       _numLook?.value = look;
-
                       _typingDebounce?.cancel();
 
                       _typingDebounce = Timer(const Duration(seconds: 3), () {
@@ -317,9 +340,7 @@ class _LoginScreenState extends State<LoginScreen>
                       });
                     }
 
-                    if (_isHandsUp != null) {
-                      _isHandsUp!.change(false);
-                    }
+                    _isHandsUp?.change(false);
                   },
                   decoration: InputDecoration(
                     errorText: emailError,
@@ -330,21 +351,14 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 TextField(
                   controller: _passCtrl,
                   focusNode: _passwordFocus,
                   obscureText: _obscure,
                   onChanged: (value) {
-                    if (_isHandsUp != null) {
-                      _isHandsUp!.change(_obscure);
-                    }
-
-                    if (_isChecking != null) {
-                      _isChecking!.change(false);
-                    }
+                    _isHandsUp?.change(_obscure);
+                    _isChecking?.change(false);
                   },
                   decoration: InputDecoration(
                     errorText: passError,
@@ -357,10 +371,7 @@ class _LoginScreenState extends State<LoginScreen>
                       onPressed: () {
                         setState(() {
                           _obscure = !_obscure;
-
-                          if (_isHandsUp != null) {
-                            _isHandsUp!.change(_obscure);
-                          }
+                          _isHandsUp?.change(_obscure);
                         });
                       },
                     ),
@@ -369,9 +380,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
                 SizedBox(
                   width: size.width,
                   child: Row(
@@ -424,7 +433,6 @@ class _LoginScreenState extends State<LoginScreen>
                           ],
                         ),
                       ),
-
                       TextButton(
                         onPressed: _onForgotPassword,
                         child: const Text(
@@ -439,9 +447,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 15),
-
                 MaterialButton(
                   minWidth: size.width,
                   height: 50,
@@ -467,9 +473,7 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                 ),
-
                 const SizedBox(height: 10),
-
                 SizedBox(
                   width: size.width,
                   child: Row(

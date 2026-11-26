@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "487776843430",
+    "project_id": "flutter-market-app-ef1ce",
+    "storage_bucket": "flutter-market-app-ef1ce.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:487776843430:android:7e7cf0f954b6fc775ca667",
+        "android_client_info": {
+          "package_name": "com.example.login_bear_animation"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATObiaWljuiYOuJHdJnxGXUmDMFJc5bnA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

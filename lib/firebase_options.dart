@@ -7,6 +7,7 @@ class DefaultFirebaseOptions {
     if (kIsWeb) {
       return web;
     }
+
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
@@ -18,19 +19,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDcXc3b39cK3z7XBazwojDyEm5JS7eupWI',
-    authDomain: 'login-bear-animation.firebaseapp.com',
-    projectId: 'login-bear-animation',
-    storageBucket: 'login-bear-animation.firebasestorage.app',
-    messagingSenderId: '1002667843221',
-    appId: '1:1002667843221:web:2759eaefc5f39fae78c59c',
+    apiKey: 'AIzaSyDrgjDlKzqOPFYBKwXIeU6YGdXxqmMQyiI',
+    authDomain: 'flutter-market-app-ef1ce.firebaseapp.com',
+    projectId: 'flutter-market-app-ef1ce',
+    storageBucket: 'flutter-market-app-ef1ce.firebasestorage.app',
+    messagingSenderId: '487776843430',
+    appId: '1:487776843430:web:72a913bb7266cd6c5ca667',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDcXc3b39cK3z7XBazwojDyEm5JS7eupWI',
-    projectId: 'login-bear-animation',
-    storageBucket: 'login-bear-animation.firebasestorage.app',
-    messagingSenderId: '1002667843221',
-    appId: '1:1002667843221:web:2759eaefc5f39fae78c59c',
+    apiKey: 'AIzaSyATObiaWljuiYOuJHdJnxGXUmDMFJc5bnA',
+    projectId: 'flutter-market-app-ef1ce',
+    storageBucket: 'flutter-market-app-ef1ce.firebasestorage.app',
+    messagingSenderId: '487776843430',
+    appId: '1:487776843430:android:7e7cf0f954b6fc775ca667',
   );
 }
